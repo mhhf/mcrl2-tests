@@ -1,0 +1,1 @@
+nix-shell -p qt5.full boost libGL_driver cmake x11 freeglut pkgconfig gcc mesa mesa_glu

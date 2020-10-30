@@ -1,0 +1,38 @@
+% sort
+%   Guy = struct ali | bob | jar | pit;
+%
+% act
+%   a, b, c, d;
+%   get_s, get_r, get: Guy # Nat;
+%
+% proc
+%   Sai = sum x, p, q :Nat, guy:Guy.
+%     (x < 10) ->
+%       get_r(guy, x)
+%     . Sai
+%     ;
+%   Tkn(x:Nat) =
+%     (x==0) -> sum guy:Guy, p:Nat.
+%       (p < 3) ->
+%       get_s(guy, x)
+%     . Tkn(x + p)
+%     ;
+%
+% init
+%   allow({b, c, d, get},
+%     comm({get_s|get_r -> get},
+%       Sai || Tkn(0)
+%     ));
+
+act r1,s1,r2,s2, c1,c2;
+
+proc
+  A = r1 . s2 . A;
+  B = s1 . B;
+  C = r2 . C;
+
+init
+  allow({c1, c2},
+    comm({r1|s1 -> c1, r2|s2 -> c2},
+    A || B || C
+  ));

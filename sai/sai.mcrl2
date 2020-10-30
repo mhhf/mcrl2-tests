@@ -1,0 +1,153 @@
+sort
+  Bal = Guy -> Nat;
+  Guy = struct ali | bob | jar | pit | zro;
+  UrnLad = Nat -> Guy;
+  UrnNum = Nat -> Nat;
+
+map initial_eth: Bal;
+    empty: Bal;
+    emptyUrnNum: UrnNum;
+    emptyUrnLad: UrnLad;
+    MAX: Nat;
+    normal: Guy -> Bool;
+    safe: Nat # Nat # Nat # Nat -> Bool;
+eqn empty = (lambda x:Guy. 0);
+    emptyUrnLad = (lambda x:Nat. zro);
+    emptyUrnNum = (lambda x:Nat. 0);
+    initial_eth = empty[ali -> 4];
+    MAX = 4;
+    normal = lambda guy:Guy. guy != jar && guy != pit && guy != zro;
+    safe = lambda tag, mat, jam, tab:Nat. jam * tag >= tab * mat;
+
+act
+  sai_exit        : Guy # Nat;
+  sai_join        : Guy # Nat;
+  open            : Guy;
+  give            : Guy # Nat # Guy;
+  lock            : Guy # Nat # Nat;
+  free            : Guy # Nat # Nat;
+  draw            : Guy # Nat # Nat;
+  wipe            : Guy # Nat # Nat;
+
+proc
+  Gui(n:Nat) = Gui(n);
+  Tag(n:Nat) = Tag(n);
+  Sai(skrt:Nat, gui:Nat, tag:Nat, eth:Bal, sai:Bal, skr:Bal, urnlad:UrnLad, urnjam:UrnNum, urntab:UrnNum) =
+    sum guy:Guy. normal(guy) -> (
+      (skrt == 0) ->
+        (sum wad:Nat.
+        (  0 < wad && wad < MAX
+        && wad <= eth(guy))
+        ->
+          sai_join(guy, wad)
+        . Sai(
+            skrt = skrt + wad,
+            eth  = eth[guy -> Int2Nat(eth(guy) - wad)][jar -> eth(jar)+wad],
+            skr  = skr[guy -> skr(guy)+wad]))
+
+    + ((skrt != 0) ->
+      sum wad:Nat.
+      (  0 < wad && wad < MAX
+      && wad <= eth(guy)
+      )
+      ->
+        sai_join(guy, wad)
+      . Sai(
+          skrt = skrt + wad * (eth(jar) div Nat2Pos(skrt)),
+          eth  = eth[guy->Int2Nat(eth(guy) - wad)][jar -> eth(jar) + wad],
+          skr  = skr[guy->skr(guy)+wad * (eth(jar) div Nat2Pos(skrt))]
+          )
+      )
+
+    + (sum wad:Nat.
+      (  0 < wad && wad < MAX
+      && wad <= skr(guy)
+      && wad <= eth(jar)
+      && wad <= skrt)
+      ->
+        sai_exit(guy, wad)
+      . Sai(
+          skrt = Int2Nat(skrt - wad),
+          eth  = eth[guy -> eth(guy) + wad][jar -> Int2Nat(eth(jar) - wad)],
+          skr  = skr[guy -> Int2Nat(skr(guy) - wad)]
+          )
+      )
+    + (gui < 3) ->
+        open(guy)
+      . Sai(
+          gui    = gui + 1,
+          urnlad = urnlad[gui+1 -> guy],
+          urnjam = urnjam[gui+1 -> 0],
+          urntab = urntab[gui+1 -> 0]
+          )
+    + (sum guy2: Guy, uid:Nat.
+      ( normal(guy2)
+      && guy != guy2 && urnlad(uid) == guy
+      && uid <= gui
+      )
+      ->
+        give(guy, uid, guy2)
+      . Sai(
+        urnlad=urnlad[uid->guy2]
+        )
+      )
+    + sum uid, wad:Nat.
+      (  uid <= gui
+      && 0 < wad && wad <= skr(guy)
+      ) ->
+        lock(guy, uid, wad)
+      . Sai(
+          urnjam = urnjam[uid->urnjam(uid) + wad],
+          skr    = skr[guy -> Int2Nat(skr(guy) - wad)][jar -> skr(jar) + wad]
+        )
+    + sum uid, wad:Nat.
+      (  uid <= gui
+      && guy == urnlad(gui)
+      && safe(tag, 1, Int2Nat(urnjam(uid) - wad), urntab(uid))
+      && wad <= urnjam(uid)
+      && wad <= skr(jar)
+      ) ->
+        free(guy, uid, wad)
+      . Sai(
+          urnjam = urnjam[uid -> Int2Nat(urnjam(uid) - wad)],
+          skr    = skr[guy -> skr(guy) + wad][jar -> Int2Nat(skr(jar) - wad)]
+      )
+    + sum uid, wad:Nat.
+    (    uid <= gui
+      && guy == urnlad(gui)
+      && safe(tag, 1, urnjam(uid), urntab(uid) + wad)
+      && wad < MAX
+    ) ->
+      draw(guy, uid, wad)
+    . Sai(
+      sai = sai[guy -> sai(guy) + wad],
+      urntab = urntab[uid -> urntab(uid) + wad]
+      )
+    + sum uid, wad:Nat.
+    (  uid <= gui
+    && guy == urnlad(gui)
+    && wad <= sai(guy)
+    && wad <= urntab(uid)
+    ) ->
+      wipe(guy, uid, wad)
+    . Sai(
+      sai = sai[guy -> Int2Nat(sai(guy) - wad)],
+      urntab = urntab[uid -> Int2Nat(urntab(uid) - wad)]
+    )
+  )
+    ;
+
+
+
+init
+  Sai(
+    skrt = 0,
+    gui = 0,
+    tag = 1,
+    eth = initial_eth,
+    skr = empty,
+    sai = empty,
+    urnlad = emptyUrnLad,
+    urnjam = emptyUrnNum,
+    urntab = emptyUrnNum
+    );

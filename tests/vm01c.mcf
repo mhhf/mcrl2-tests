@@ -1,0 +1,3 @@
+% after every ready only a coin follows (true)
+
+[ true* . ready . !coin ] false

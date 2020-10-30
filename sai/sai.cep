@@ -1,0 +1,391 @@
+nat: type.
+z: nat.
+s nat: nat.
+
+#builtin NAT nat.
+#builtin NAT_ZERO z.
+#builtin NAT_SUCC s.
+
+eq nat nat: bwd.
+eq z z.
+eq (s N) (s N).
+
+neq nat nat: bwd.
+neq z (s N).
+neq (s N) z.
+neq (s M) (s N)
+  <- neq M N.
+
+gt nat nat : bwd.
+gt/z : gt (s _) z.
+gt/s : gt (s M) (s N)
+      <- gt M N.
+
+lt nat nat : bwd.
+lt/z : lt z (s _).
+lt/s : lt (s M) (s N)
+      <- gt M N.
+
+geq nat nat : bwd.
+geq/z : geq N z.
+geq/s : geq (s M) (s N)
+      <- geq M N.
+
+leq nat nat : bwd.
+leq/z : leq z N.
+leq/s : leq (s M) (s N)
+      <- leq M N.
+
+plus nat nat nat: bwd.
+plus/z : plus z N N.
+plus/s : plus (s M) N (s P)
+         <- plus M N P.
+
+times nat nat nat: bwd.
+times/z : times z N z.
+times/s : times (s M) N Q
+          <- times M N P
+          <- plus P N Q.
+
+sub nat nat nat: bwd.
+sub/z : sub N z N.
+sub/s : sub (s M) (s N) P
+        <- sub M N P.
+
+div nat nat nat: bwd.
+div/z : div M N z
+        <- lt M N.
+div/s : div M N (s Q)
+        <- leq N M
+        <- sub M N M'
+        <- div M' N Q.
+
+guy: type.
+ali: guy.
+bob: guy.
+jar: guy.
+pit: guy.
+
+who guy: pred.
+
+eth guy nat: pred.
+skr guy nat: pred.
+sai guy nat: pred.
+sin guy nat: pred.
+skrt nat: pred.
+
+gui nat: pred.
+urn nat guy nat nat: pred.
+
+term: type.
+switch guy: term.
+join nat: term.
+exit nat: term.
+open: term.
+give nat guy: term.
+lock nat nat: term.
+free nat nat: term.
+draw nat nat: term.
+wipe nat nat: term.
+bite nat: term.
+boom nat: term.
+bust nat: term.
+
+mark nat: term.
+tag nat: pred.
+pip nat: pred.
+
+safe nat nat nat nat: bwd.
+safe Tag Mat Jam Tab
+    <- times Jam Tag Pro
+    <- times Tab Mat Min
+    <- geq Pro Min.
+
+unsafe nat nat nat nat: bwd.
+unsafe Tag Mat Jam Tab
+    <- times Jam Tag Pro
+    <- times Tab Mat Min
+    <- lt Pro Min.
+
+wait: pred.
+inputTerm term: pred.
+do term: pred.
+
+stage read = {
+  read: wait * inputTerm T -o do T.
+}
+qui * stage read -o stage eval.
+
+stage eval = {
+  switch
+  : do (switch Guy)
+  * who Me
+  -o
+    who Guy.
+
+  mark
+  : do (mark Tag')
+  * tag Tag
+  -o
+    tag Tag'.
+
+  join/0
+  : do (join Wad)
+  * $ who Guy
+  * skrt Skrbal
+  * eq Skrbal 0
+  * eth Guy Ethguy
+  * eth jar Ethjar
+  * skr Guy Skrguy
+  * eq Ink Wad
+  * plus Ethguy' Wad Ethguy
+  * plus Skrguy  Ink Skrguy'
+  * plus Ethjar  Wad Ethjar'
+  * plus Skrbal  Ink Skrbal'
+  -o
+    skrt Skrbal'
+  * eth Guy Ethguy'
+  * eth jar Ethjar'
+  * skr Guy Skrguy'.
+
+  join/1
+  : do (join Wad)
+  * $ who Guy
+  * skrt Skrbal
+  * neq Skrbal 0
+  * eth Guy Ethguy
+  * eth jar Ethjar
+  * skr Guy Skrguy
+  * div Ethjar Skrbal Per
+  * times Per Wad Ink
+  * plus Ethguy' Wad Ethguy
+  * plus Skrguy  Ink Skrguy'
+  * plus Ethjar  Wad Ethjar'
+  * plus Skrbal  Ink Skrbal'
+  -o
+    skrt Skrbal'
+  * eth Guy Ethguy'
+  * eth jar Ethjar'
+  * skr Guy Skrguy'.
+
+  exit
+  : do (exit Wad)
+  * $ who Guy
+  * skrt Skrbal
+  * eth Guy Ethguy
+  * eth jar Ethjar
+  * skr Guy Skrguy
+  * plus Ethguy  Wad Ethguy'
+  * plus Skrguy' Wad Skrguy
+  * plus Ethjar' Wad Ethjar
+  * plus Skrbal' Wad Skrbal
+  -o
+    skrt Skrbal'
+  * eth Guy Ethguy'
+  * eth jar Ethjar'
+  * skr Guy Skrguy'.
+
+  open
+  : do (open)
+  * $ who Lad
+  * gui Uid
+  * plus 1 Uid Uid'
+  -o
+    gui Uid'
+  * urn Uid' Lad 0 0.
+
+  give
+  : do (give Uid Guy)
+  * $ who Lad
+  * urn Uid Lad Jam Tab
+  -o
+    urn Uid Guy Jam Tab.
+
+  lock
+  : do (lock Uid Wad)
+  * $ who Lad
+  * urn Uid Lad Jam Tab
+  * skr Lad Skrlad
+  * skr jar Skrjar
+  * plus Jam Wad Jam'
+  * plus Skrlad' Wad Skrlad
+  * plus Skrjar  Wad Skrjar'
+  -o
+    urn Uid Lad Jam' Tab
+  * skr Lad Skrlad'
+  * skr jar Skrjar'.
+
+  free
+  : do (free Uid Wad)
+  * $ who Lad
+  * $ tag Tag
+  * eq Mat 1
+  * urn Uid Lad Jam Tab
+  * skr Lad Skrlad
+  * skr jar Skrjar
+  * plus Jam' Wad Jam
+  * plus Skrlad  Wad Skrlad'
+  * plus Skrjar' Wad Skrjar
+  * safe Tag Mat Jam' Tab
+  -o
+    urn Uid Lad Jam' Tab
+  * skr Lad Skrlad'
+  * skr jar Skrjar'.
+
+  draw
+  : do (draw Uid Wad)
+  * $ who Lad
+  * $ tag Tag
+  * eq Mat 1
+  * urn Uid Lad Jam Tab
+  * sai Lad Sailad
+  * plus Tab Wad Tab'
+  * plus Sailad Wad Sailad'
+  * safe Tag Mat Jam Tab'
+  -o
+    sai Lad Sailad'
+  * urn Uid Lad Jam Tab'.
+
+  wipe
+  : do (wipe Uid Wad)
+  * $ who Lad
+  * urn Uid Lad Jam Tab
+  * sai Lad Sailad
+  * plus Tab' Wad Tab
+  * plus Sailad' Wad Sailad
+  -o
+    sai Lad Sailad'
+  * urn Uid Lad Jam Tab'.
+
+  bite/0
+  : do (bite Uid)
+  * $ tag Tag
+  * eq Mat 1
+  * eq Axe 1
+  * urn Uid Lad Jam Tab
+  * unsafe Tag Mat Jam Tab
+  * times Axe Tab Owe
+  * times Jam Tag Pro
+  * geq Owe Pro
+  * skr jar Skrjar
+  * skr pit Fog
+  * plus Fog Jam Fog'
+  * plus Skrjar' Jam Skrjar
+  -o
+    urn Uid Lad 0 0
+  * skr pit Fog'
+  * sin pit Tab.
+
+  bite/1
+  : do (bite Uid)
+  * $ tag Tag
+  * eq Mat 1
+  * eq Axe 1
+  * urn Uid Lad Jam Tab
+  * unsafe Tag Mat Jam Tab
+  * times Axe Tab Owe
+  * times Jam Tag Pro
+  * lt Owe Pro
+  * skr jar Skrjar
+  * skr pit Fog
+  * div Owe Tag Wad
+  * plus Fog Jam Fog'
+  * plus Skrjar' Wad Skrjar
+  * plus Jam' Wad Jam
+  -o
+    urn Uid Lad Jam' 0
+  * skr pit Fog'
+  * sin pit Tab.
+
+  boom
+  : do (boom Wad)
+  * $ who Guy
+  * $ tag Tag
+  * skrt Skrbal
+  * sai Guy Saiguy
+  * skr Guy Skrguy
+
+  * sai pit Joy
+  * sin pit Woe
+  * geq Joy Woe
+
+  * times Wad Tag Awe
+  * plus Awe Woe X
+  * plus Joy' X Joy
+
+  * plus Skrbal' Wad Skrbal
+  * plus Skrguy' Wad Skrguy
+  * plus Saiguy  Awe Saiguy'
+  -o
+    skrt Skrbal'
+  * sai Guy Saiguy'
+  * skr Guy Skrguy'
+
+  * sai pit Joy'
+  * sin pit 0.
+
+  bust/0
+  : do (bust Wad)
+  * $ who Guy
+  * $ tag Tag
+  * sai Guy Saiguy
+  * skr Guy Skrguy
+
+  * sai pit Joy
+  * skr pit Fog
+
+  * times Wad Tag Ash
+  * plus Fog' Wad Fog
+  * plus Joy  Ash Joy'
+  * plus Saiguy' Ash Saiguy
+  * plus Skrguy  Wad Skrguy'
+  -o
+    sai Guy Saiguy'
+  * skr Guy Skrguy'
+  * sai pit Joy'
+  * skr pit Fog'.
+
+  bust/1
+  : do (bust Wad)
+  * $ who Guy
+  * skrt Skrbal
+
+  * sai Guy Saiguy
+  * skr Guy Skrguy
+
+  * sai pit Joy
+  * sin pit Woe
+  * skr pit Fog
+
+  * $ eth jar Pie
+  * $ pip Pip
+
+  * plus Skrbal  Wad Skrbal'
+  * div Pie Skrbal' Per'
+  * times Pip Per' Tag'
+  * times Tag' Skrguy' Ash
+
+  * plus Ash Joy X
+  * plus Woe' X Woe
+
+  * plus Saiguy' Ash Saiguy
+  * plus Skrguy  Wad Skrguy'
+  -o
+    skrt Skrbal'
+
+  * sai Guy Saiguy'
+  * skr Guy Skrguy'
+
+  * sai pit 0
+  * sin pit Woe'
+  * skr pit 0.
+}
+qui * stage eval -o wait * stage read.
+
+context init = {eth ali 100, skr ali 100, sai ali 0,
+                skr jar 0, eth jar 0,
+                skrt 0,
+                tag 1,
+                gui 0, who ali}
+
+#trace _ eval init.

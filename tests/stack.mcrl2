@@ -1,0 +1,38 @@
+sort Stack = List(Pos);
+
+map
+  empty: Stack -> Bool;
+  push: Pos # Stack -> Stack;
+  pop: Stack -> Stack;
+  top: Stack -> Pos;
+  N: Pos;
+  build_stack: Pos # Pos -> Stack;
+
+var s: Stack;
+    x: Pos;
+    y: Pos;
+
+eqn empty(s)              = s == [];
+    push(x, s)            = x |> s;
+    pop([])               = [];
+    pop(x |> s)           = s;
+    (!empty(s)) -> top(s) = head(s);
+    N                     = 3;
+    (x == y) -> build_stack(x, y)   = [x];
+    (x < y) -> build_stack(x, y)   = x |> build_stack(x+1, y);
+act
+  send, receive, move: Pos # Pos # Pos;
+
+proc
+  Peg(id:Pos, stack:Stack) =
+    sum d,p:Pos.(empty(stack) || top(stack) > d) ->
+      receive(d, p, id).Peg(id, push(d, stack))
+    +
+    sum p:Pos . (!empty(stack) && !(stack == build_stack(1,N) && id == 3) && !(id == p)) ->
+      send(top(stack), id, p).Peg(id, pop(stack));
+
+init
+  allow ({ move },
+    comm({send|receive -> move},
+    Peg(1, build_stack(1, N)) || Peg(2, []) || Peg(3, [])
+  ));

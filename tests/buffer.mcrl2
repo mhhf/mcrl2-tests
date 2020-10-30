@@ -1,0 +1,7 @@
+sort D=struct d1 | d2;
+
+act r1, s2, s3, r3, c3: D;
+proc X=sum d:D.(r1(d)+r3(d)).(s2(d)+s3(d)).X;
+     B=sum d:D.r3(d).s3(d).B;
+
+init hide({c3},allow({r1,s2,c3},comm({r3|s3->c3},X||B)));
