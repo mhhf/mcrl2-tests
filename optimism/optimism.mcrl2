@@ -1,0 +1,162 @@
+sort
+  Usr   = struct ali | bob | bm;
+  State = struct NOT_COLLATERALIZED | COLLATERALIZED | WITHDRAWING;
+
+map
+  MCRL2MAX: Nat;
+  normal: Usr -> Bool;
+  inRange: Nat -> Bool;
+  disputePeriodSeconds: Nat;
+  c1: Nat # Nat # Nat -> Nat;
+  natusrnatinc: (Nat -> Usr -> Nat) # Nat # Usr # Nat -> (Nat -> Usr -> Nat);
+
+eqn
+  MCRL2MAX = 2;
+  normal = lambda usr:Usr. usr != bm;
+  inRange = lambda x:Nat. 0 < x && x <= MCRL2MAX;
+  disputePeriodSeconds = 1;
+  c1 = lambda x, y, z:Nat. (x * y) div Nat2Pos(2 * z);
+  natusrnatinc = lambda mapp:(Nat -> Usr -> Nat), x:Nat, y:Usr, z:Nat. mapp[x -> mapp(x)[y -> mapp(x)(y) + z]];
+
+
+act
+  % callable only from stateTransitioner
+  recordGasSpent              : Nat # Usr # Nat;
+  % callable only from fraudVerifier
+  finalize                    : Nat # Usr # Nat;
+  deposit                     : Usr # Nat;
+  startWithdrawal             : Usr;
+  finalizeWithdrawal          : Usr;
+  claim                       : Usr # Nat # Nat;
+  setRequiredCollateral       : Nat;
+  isCollateralized            : Usr;
+  getGasSpent                 : Nat # Usr;
+  tick                        ;
+  drained                     : Usr # Nat;
+
+proc
+  BondManager(
+    timestamp                 : Nat,
+    eth                       : Usr -> Nat,
+    requiredCollateral        : Nat,
+    MAX                       : Nat,
+    % owner                   : Nat,            % simplify
+    % token                   : Nat,            % simplify
+    % ovmFraudVerifier        : Nat,            % simplify
+    bonds_state               : Usr -> State,
+    bonds_withdrawalTimestamp : Usr -> Nat,
+    witnessProviders_canClaim : Nat -> Bool,
+    witnessProviders_total    : Nat -> Nat,
+    witnessProviders_gasSpent : Nat -> Usr -> Nat
+  )
+    % tick
+    = ((timestamp < MCRL2MAX) -> tick . BondManager(timestamp = timestamp + 1))
+
+    % deposit
+    + (sum usr:Usr, x:Nat.
+      (normal(usr)
+      && inRange(x)
+      && x <= eth(usr))
+      -> deposit(usr, x) . BondManager(
+        eth = eth[usr -> Int2Nat(eth(usr) - x)][bm -> eth(bm) + x],
+        bonds_state = bonds_state[usr -> COLLATERALIZED]
+      ))
+
+    % startWithdrawal
+    + (sum usr:Usr.
+      (normal(usr)
+      && bonds_withdrawalTimestamp(usr) == 0
+      && bonds_state(usr) == COLLATERALIZED)
+      -> startWithdrawal(usr) . BondManager(
+        bonds_state = bonds_state[usr -> WITHDRAWING],
+        bonds_withdrawalTimestamp = bonds_withdrawalTimestamp[usr -> timestamp]
+      ))
+
+    % finalizeWithdrawal
+    + (sum usr:Usr.
+      (normal(usr)
+      && timestamp >= bonds_withdrawalTimestamp(usr) + disputePeriodSeconds
+      && bonds_state(usr) == WITHDRAWING
+      && requiredCollateral <= eth(bm))
+      -> finalizeWithdrawal(usr) . BondManager(
+        eth = eth[usr -> eth(usr) + requiredCollateral][bm -> Int2Nat(eth(bm) - requiredCollateral)],
+        bonds_state = bonds_state[usr -> NOT_COLLATERALIZED],
+        bonds_withdrawalTimestamp = bonds_withdrawalTimestamp[usr -> 0]
+      ))
+
+    % drained
+    + (sum usr:Usr.
+      (normal(usr)
+      && eth(usr) > 2)
+      -> drained(usr, eth(usr)). BondManager())
+
+    % recordGasSpent
+    + (sum who:Usr, preStateRoot:Nat.
+      (  normal(who)
+      && inRange(preStateRoot)
+      && witnessProviders_gasSpent(preStateRoot)(who) < MCRL2MAX
+      % TODO - sender must be state transitioner
+      )
+      -> recordGasSpent(preStateRoot, who, 1) . BondManager(
+        witnessProviders_total = witnessProviders_total[preStateRoot -> witnessProviders_total(preStateRoot) + 1],
+        witnessProviders_gasSpent = natusrnatinc(witnessProviders_gasSpent, preStateRoot, who, 1)
+      ))
+
+    % claim
+    + (sum usr:Usr, preStateRoot:Nat.
+      (normal(usr)
+      && preStateRoot < MCRL2MAX
+      && witnessProviders_canClaim(preStateRoot)
+      && 0 < witnessProviders_total(preStateRoot)
+      && c1(requiredCollateral, witnessProviders_gasSpent(preStateRoot)(usr), witnessProviders_total(preStateRoot)) < eth(bm))
+      -> claim(usr, preStateRoot, c1(requiredCollateral, witnessProviders_gasSpent(preStateRoot)(usr), witnessProviders_total(preStateRoot))) . BondManager(
+        eth = eth[usr -> eth(usr) + c1(requiredCollateral, witnessProviders_gasSpent(preStateRoot)(usr), witnessProviders_total(preStateRoot))][usr -> Int2Nat(eth(bm) - c1(requiredCollateral, witnessProviders_gasSpent(preStateRoot)(usr), witnessProviders_total(preStateRoot)))],
+        witnessProviders_gasSpent = witnessProviders_gasSpent[preStateRoot ->
+          witnessProviders_gasSpent(preStateRoot)[usr -> 0]
+        ]
+      ))
+
+    % finalize 1
+    % TODO - only fraudVerifier can call this
+    + (sum preStateRoot, ts:Nat, publisher:Usr.
+    (normal(publisher)
+    && inRange(ts)
+    && preStateRoot < MCRL2MAX
+    && !witnessProviders_canClaim(preStateRoot)
+    && bonds_withdrawalTimestamp(publisher) != 0
+    && bonds_withdrawalTimestamp(publisher) > ts + disputePeriodSeconds
+    && bonds_state(publisher) == WITHDRAWING)
+    -> finalize(preStateRoot, publisher, ts) . BondManager(
+        witnessProviders_canClaim = witnessProviders_canClaim[preStateRoot -> true]
+      ))
+
+    % finalize - slash
+    % TODO - only fraudVerifier can call this
+    + (sum preStateRoot, ts:Nat, publisher:Usr.
+    (normal(publisher)
+    && inRange(ts)
+    && preStateRoot < MCRL2MAX
+    && !witnessProviders_canClaim(preStateRoot)
+    && !(bonds_withdrawalTimestamp(publisher) != 0
+    && bonds_withdrawalTimestamp(publisher) > ts + disputePeriodSeconds
+    && bonds_state(publisher) == WITHDRAWING))
+    -> finalize(preStateRoot, publisher, ts) . BondManager(
+        witnessProviders_canClaim = witnessProviders_canClaim[preStateRoot -> true],
+        bonds_state = bonds_state[publisher -> NOT_COLLATERALIZED]
+      ))
+  ;
+
+init
+  hide({tick, deposit, startWithdrawal, finalizeWithdrawal},
+    allow({finalize, drained, recordGasSpent, claim},
+      BondManager(
+        0,                                    % timestamp
+        (lambda usr:Usr. 0)[ali -> 2][bob -> 2],% eth
+        2,                                    % requiredCollateral
+        1,                                    % max
+        (lambda usr:Usr. NOT_COLLATERALIZED), % bond_state
+        (lambda usr:Usr. 0),                  % bonds_withdrawalTimestamp
+        (lambda root:Nat. false),             % witnessProviders_canClaim
+        (lambda root:Nat. 0),                 % witnessProviders_total
+        (lambda root:Nat.(lambda usr:Usr. 0)) % witnessProviders_gasSpent
+      )));
